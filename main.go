@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 package main
 
 // An example program demonstrating the pager component from the Bubbles
@@ -8,50 +11,33 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/mascanio/logwatch/appendableViewport"
-	// "github.com/mistakenelf/teacup/statusbar"
+	"strconv"
 
 	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// You generally won't need this unless you're processing stuff with
-// complicated ANSI escape sequences. Turn it on if you notice flickering.
-//
-// Also keep in mind that high performance rendering only works for programs
-// that use the full size of the terminal. We're enabling that below with
-// tea.EnterAltScreen().
-const useHighPerformanceRenderer = false
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
 
-var (
-	titleStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		b.Right = "├"
-		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
-	}()
+var logFile *os.File
 
-	infoStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		b.Left = "┤"
-		return titleStyle.BorderStyle(b)
-	}()
-)
+func log(s string) {
+	if _, err := logFile.WriteString(s); err != nil {
+		panic(err)
+	}
+}
 
 type model struct {
-	ready    bool
-	viewport appendableviewport.Model
-	table    table.Model
-	wr       watchReader
-	finished bool
-	freezed  bool
+	table table.Model
+	wr    *watchReader
+	count int
 }
 
 type watchReader struct {
-	sc       *bufio.Scanner
-	readChan chan string
+	readChan chan any
 }
 
 type watchLineReaded string
@@ -59,108 +45,95 @@ type watchEof struct{}
 type watchErr error
 type watchChanClosed struct{}
 
-func (r *watchReader) watchForLine() tea.Cmd {
-	return func() tea.Msg {
-		defer close(r.readChan)
-		for r.sc.Scan() {
-			r.readChan <- r.sc.Text()
+func watchForLine(sc *bufio.Scanner) chan any {
+	readChan := make(chan any)
+	go func() {
+		defer close(readChan)
+		for sc.Scan() {
+			log("reading\n")
+			readChan <- watchLineReaded(sc.Text())
 		}
-		if err := r.sc.Err(); err != nil && err != io.EOF {
-			return watchErr(err)
+		if err := sc.Err(); err != nil && err != io.EOF {
+			readChan <- watchErr(err)
 		}
-		return watchEof{}
-	}
+		readChan <- watchEof{}
+	}()
+	return readChan
 }
 
 func (r *watchReader) waitForLine() tea.Cmd {
+	log("wait\n")
 	return func() tea.Msg {
 		s, ok := <-r.readChan
 		if !ok {
 			return watchChanClosed{}
 		}
-		return watchLineReaded(s)
+		return s
 	}
 }
-
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		m.wr.watchForLine(),
 		m.wr.waitForLine(),
 	)
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+// func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// 	var cmds []tea.Cmd
+//
+// 	switch msg := msg.(type) {
+// 	case tea.WindowSizeMsg:
+// 		cmdsWindow := m.updateWindowSize(msg)
+// 		if cmdsWindow != nil {
+// 			cmds = append(cmds, cmdsWindow...)
+// 		}
+// 	}
+// 	var cmd tea.Cmd
+// 	if m.viewport.IsMoveMsg(msg) != appendableviewport.NotMove {
+// 		m.viewport, cmd = m.viewport.Update(msg)
+// 		cmds = append(cmds, cmd)
+// 		m.freezed = !m.freezed
+// 	}
+// 	return m, tea.Batch(cmds...)
+// }
 
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		log("key: " + msg.String() + "\n")
 		switch msg.String() {
-		case "ctrl+c", "q":
+		// case "esc":
+		// 	if m.table.Focused() {
+		// 		m.table.Blur()
+		// 	} else {
+		// 		m.table.Focus()
+		// 	}
+		case "q", "ctrl+c":
+			log("quit\n")
 			return m, tea.Quit
-		case "c":
-			m.freezed = false
-		}
-	case tea.WindowSizeMsg:
-		cmdsWindow := m.updateWindowSize(msg)
-		if cmdsWindow != nil {
-			cmds = append(cmds, cmdsWindow...)
 		}
 	case watchLineReaded:
-		m.viewport.Append(string(msg))
-		cmds = append(cmds, m.wr.waitForLine())
-		if !m.freezed {
-			m.viewport.GotoBottom()
-		}
-		// else {
-		// 	m.viewport.LineUp(1)
-		// }
+		log(fmt.Sprintf("%v, %v\n", m.count+1, string(msg)))
+		m.count++
+		newRows := m.table.Rows()
+		count := strconv.Itoa(m.count)
+		newRows = append(newRows, table.Row{count, string(msg)})
+		m.table.SetRows(newRows)
+		return m, m.wr.waitForLine()
 	case watchChanClosed:
-		break
+		log("Chan closed")
 	case watchEof:
-		// Wait untill chan is closed above
-		m.finished = true
+		log("EOF")
 	case watchErr:
 		panic(msg)
 	}
 	var cmd tea.Cmd
-	if m.viewport.IsMoveMsg(msg) != appendableviewport.NotMove {
-		m.viewport, cmd = m.viewport.Update(msg)
-		cmds = append(cmds, cmd)
-		m.freezed = !m.freezed
-	}
-	return m, tea.Batch(cmds...)
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
 }
 
 func (m model) View() string {
-	if !m.ready {
-		return "\n  Initializing..."
-	}
-	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
-}
-
-func (m model) headerView() string {
-	var s string
-	if m.finished {
-		s = "EOF"
-	} else {
-		s = "Running..."
-	}
-	title := titleStyle.Render(s)
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
-}
-
-func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	log("render\n")
+	return baseStyle.Render(m.table.View()) + "\n  " + m.table.HelpView() + "\n"
 }
 
 func main() {
@@ -168,6 +141,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	logFile, err = tea.LogToFile("log", "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
 
 	if stat.Mode()&os.ModeNamedPipe == 0 && stat.Size() == 0 {
 		fmt.Println("Try piping in some text.")
@@ -178,8 +158,35 @@ func main() {
 	sc := bufio.NewScanner(reader)
 	sc.Split(bufio.ScanLines)
 
+	columns := []table.Column{
+		{Title: "id", Width: 4},
+		{Title: "msg", Width: 70},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(make([]table.Row, 0, 500)),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	c := watchForLine(sc)
+
+	wr := &watchReader{readChan: c}
 	p := tea.NewProgram(
-		model{wr: watchReader{sc: sc, readChan: make(chan string)}},
+		model{table: t, wr: wr},
 		tea.WithAltScreen(),       // use the full size of the terminal in its "alternate screen buffer"
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 		tea.WithInputTTY(),
@@ -189,41 +196,4 @@ func main() {
 		fmt.Println("could not run program:", err)
 		os.Exit(1)
 	}
-}
-
-func (m *model) updateWindowSize(msg tea.WindowSizeMsg) []tea.Cmd {
-	headerHeight := lipgloss.Height(m.headerView())
-	footerHeight := lipgloss.Height(m.footerView())
-	verticalMarginHeight := headerHeight + footerHeight
-
-	if !m.ready {
-		// Since this program is using the full size of the viewport we
-		// need to wait until we've received the window dimensions before
-		// we can initialize the viewport. The initial dimensions come in
-		// quickly, though asynchronously, which is why we wait for them
-		// here.
-		m.viewport = appendableviewport.New(msg.Width, msg.Height-verticalMarginHeight)
-		m.viewport.YPosition = headerHeight
-		m.viewport.HighPerformanceRendering = useHighPerformanceRenderer
-		m.viewport.SetContent(make([]string, 0))
-		m.ready = true
-
-		// This is only necessary for high performance rendering, which in
-		// most cases you won't need.
-		//
-		// Render the viewport one line below the header.
-		m.viewport.YPosition = headerHeight + 1
-	} else {
-		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height - verticalMarginHeight
-	}
-
-	if useHighPerformanceRenderer {
-		// Render (or re-render) the whole viewport. Necessary both to
-		// initialize the viewport and when the window is resized.
-		//
-		// This is needed for high-performance rendering only.
-		return []tea.Cmd{appendableviewport.Sync(m.viewport)}
-	}
-	return nil
 }
