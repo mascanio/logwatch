@@ -93,6 +93,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log("EOF")
 	case watchErr:
 		panic(msg)
+	case tea.WindowSizeMsg:
+		m.table.SetWidth(msg.Width - 4)
+		m.table.SetHeight(msg.Height - 4)
+		newCols := m.table.Columns()
+		newCols[1].Width = m.table.Width() - newCols[0].Width - 2
+		m.table.SetColumns(newCols)
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
@@ -116,12 +122,6 @@ func main() {
 		{Title: "msg", Width: 70},
 	}
 
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithFocused(true),
-		table.WithRows(make([]table.Row, 0)),
-	)
-
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
@@ -132,7 +132,13 @@ func main() {
 		Foreground(lipgloss.Color("229")).
 		Background(lipgloss.Color("57")).
 		Bold(false)
-	t.SetStyles(s)
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(true),
+		table.WithRows(make([]table.Row, 0)),
+		table.WithStyles(s),
+	)
 
 	inputStream, err := input.NewBasicPipe()
 	if err != nil {
