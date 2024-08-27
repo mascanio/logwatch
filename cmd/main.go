@@ -1,10 +1,4 @@
-//go:build !windows
-// +build !windows
-
 package main
-
-// An example program demonstrating the pager component from the Bubbles
-// component library.
 
 import (
 	"bufio"
@@ -16,6 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/mascanio/logwatch/internal/input"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -37,7 +33,8 @@ type model struct {
 }
 
 type watchReader struct {
-	readChan chan any
+	sc       *bufio.Scanner
+	readChan chan string
 }
 
 type watchLineReaded string
@@ -45,70 +42,41 @@ type watchEof struct{}
 type watchErr error
 type watchChanClosed struct{}
 
-func watchForLine(sc *bufio.Scanner) chan any {
-	readChan := make(chan any)
-	go func() {
-		defer close(readChan)
-		for sc.Scan() {
-			log("reading\n")
-			readChan <- watchLineReaded(sc.Text())
+func (r *watchReader) watchForLine() tea.Cmd {
+	return func() tea.Msg {
+		defer close(r.readChan)
+		for r.sc.Scan() {
+			r.readChan <- r.sc.Text()
 		}
-		if err := sc.Err(); err != nil && err != io.EOF {
-			readChan <- watchErr(err)
+		if err := r.sc.Err(); err != nil && err != io.EOF {
+			return watchErr(err)
 		}
-		readChan <- watchEof{}
-	}()
-	return readChan
+		return watchEof{}
+	}
 }
 
 func (r *watchReader) waitForLine() tea.Cmd {
-	log("wait\n")
 	return func() tea.Msg {
 		s, ok := <-r.readChan
 		if !ok {
 			return watchChanClosed{}
 		}
-		return s
+		return watchLineReaded(s)
 	}
 }
+
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
+		m.wr.watchForLine(),
 		m.wr.waitForLine(),
 	)
 }
 
-// func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-// 	var cmds []tea.Cmd
-//
-// 	switch msg := msg.(type) {
-// 	case tea.WindowSizeMsg:
-// 		cmdsWindow := m.updateWindowSize(msg)
-// 		if cmdsWindow != nil {
-// 			cmds = append(cmds, cmdsWindow...)
-// 		}
-// 	}
-// 	var cmd tea.Cmd
-// 	if m.viewport.IsMoveMsg(msg) != appendableviewport.NotMove {
-// 		m.viewport, cmd = m.viewport.Update(msg)
-// 		cmds = append(cmds, cmd)
-// 		m.freezed = !m.freezed
-// 	}
-// 	return m, tea.Batch(cmds...)
-// }
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		log("key: " + msg.String() + "\n")
 		switch msg.String() {
-		// case "esc":
-		// 	if m.table.Focused() {
-		// 		m.table.Blur()
-		// 	} else {
-		// 		m.table.Focus()
-		// 	}
 		case "q", "ctrl+c":
-			log("quit\n")
 			return m, tea.Quit
 		}
 	case watchLineReaded:
@@ -132,31 +100,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	log("render\n")
 	return baseStyle.Render(m.table.View()) + "\n  " + m.table.HelpView() + "\n"
 }
 
 func main() {
-	stat, err := os.Stdin.Stat()
+	var err error
+	logFile, err = tea.LogToFile("log", "debug")
 	if err != nil {
 		panic(err)
 	}
-
-	logFile, err = tea.LogToFile("log", "debug")
-	if err != nil {
-		fmt.Println("fatal:", err)
-		os.Exit(1)
-	}
 	defer logFile.Close()
-
-	if stat.Mode()&os.ModeNamedPipe == 0 && stat.Size() == 0 {
-		fmt.Println("Try piping in some text.")
-		os.Exit(1)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	sc := bufio.NewScanner(reader)
-	sc.Split(bufio.ScanLines)
 
 	columns := []table.Column{
 		{Title: "id", Width: 4},
@@ -165,9 +118,8 @@ func main() {
 
 	t := table.New(
 		table.WithColumns(columns),
-		table.WithRows(make([]table.Row, 0, 500)),
 		table.WithFocused(true),
-		table.WithHeight(7),
+		table.WithRows(make([]table.Row, 0)),
 	)
 
 	s := table.DefaultStyles()
@@ -182,9 +134,15 @@ func main() {
 		Bold(false)
 	t.SetStyles(s)
 
-	c := watchForLine(sc)
+	inputStream, err := input.NewBasicPipe()
+	if err != nil {
+		panic(err)
+	}
+	reader := bufio.NewReader(inputStream)
+	sc := bufio.NewScanner(reader)
+	sc.Split(bufio.ScanLines)
 
-	wr := &watchReader{readChan: c}
+	wr := &watchReader{readChan: make(chan string), sc: sc}
 	p := tea.NewProgram(
 		model{table: t, wr: wr},
 		tea.WithAltScreen(),       // use the full size of the terminal in its "alternate screen buffer"
