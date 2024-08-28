@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,20 +73,36 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+func (m model) helpHeight() int {
+	s := m.table.HelpView()
+	return strings.Count(s, "\n")
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "?":
+			preH := m.helpHeight()
+			m.table.Help.ShowAll = !m.table.Help.ShowAll
+			postH := m.helpHeight()
+			// Magic that I don't understand that works
+			if preH < postH {
+				m.table.SetHeight(m.table.Height() - preH + postH - 4)
+			} else {
+				m.table.SetHeight(m.table.Height() + preH - postH + 2)
+			}
+			return m, nil
 		}
 	case watchLineReaded:
-		log(fmt.Sprintf("%v, %v\n", m.count+1, string(msg)))
 		m.count++
 		newRows := m.table.Rows()
 		count := strconv.Itoa(m.count)
 		newRows = append(newRows, table.Row{count, string(msg)})
 		m.table.SetRows(newRows)
+		// m.table.MoveDown(1)
 		return m, m.wr.waitForLine()
 	case watchChanClosed:
 		log("Chan closed")
@@ -95,7 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panic(msg)
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 4)
-		m.table.SetHeight(msg.Height - 4)
+		m.table.SetHeight(msg.Height - 2 - m.helpHeight() - 2)
 		newCols := m.table.Columns()
 		newCols[1].Width = m.table.Width() - newCols[0].Width - 2
 		m.table.SetColumns(newCols)
@@ -106,7 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return baseStyle.Render(m.table.View()) + "\n  " + m.table.HelpView() + "\n"
+	return baseStyle.Render(m.table.View()) + "\n" + m.table.HelpView() + "\n"
 }
 
 func main() {
