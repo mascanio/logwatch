@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -28,9 +29,10 @@ func log(s string) {
 }
 
 type model struct {
-	table table.Model
-	wr    *watchReader
-	count int
+	table   table.Model
+	wr      *watchReader
+	count   int
+	freezed bool
 }
 
 type watchReader struct {
@@ -78,23 +80,37 @@ func (m model) helpHeight() int {
 	return strings.Count(s, "\n")
 }
 
+func (m model) isMoveMsg(msg tea.KeyMsg) bool {
+	km := m.table.KeyMap
+	return key.Matches(msg, km.LineUp, km.LineDown, km.PageUp, km.PageDown,
+		km.HalfPageUp, km.HalfPageDown, km.GotoTop, km.GotoBottom)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "?":
-			preH := m.helpHeight()
-			m.table.Help.ShowAll = !m.table.Help.ShowAll
-			postH := m.helpHeight()
-			// Magic that I don't understand that works
-			if preH < postH {
-				m.table.SetHeight(m.table.Height() - preH + postH - 4)
-			} else {
-				m.table.SetHeight(m.table.Height() + preH - postH + 2)
+		if m.isMoveMsg(msg) {
+			m.freezed = true
+		} else {
+			switch msg.String() {
+			case "c":
+				m.table.GotoBottom()
+				m.freezed = false
+			case "q", "ctrl+c":
+				return m, tea.Quit
+			case "?":
+				preH := m.helpHeight()
+				m.table.Help.ShowAll = !m.table.Help.ShowAll
+				postH := m.helpHeight()
+				// Magic that I don't understand that works
+				if preH < postH {
+					m.table.SetHeight(m.table.Height() - preH + postH - 4)
+				} else {
+					m.table.SetHeight(m.table.Height() + preH - postH + 2)
+				}
+				return m, nil
+
 			}
-			return m, nil
 		}
 	case watchLineReaded:
 		m.count++
@@ -102,7 +118,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		count := strconv.Itoa(m.count)
 		newRows = append(newRows, table.Row{count, string(msg)})
 		m.table.SetRows(newRows)
-		// m.table.MoveDown(1)
+		if !m.freezed {
+			m.table.MoveDown(1)
+		}
 		return m, m.wr.waitForLine()
 	case watchChanClosed:
 		log("Chan closed")
