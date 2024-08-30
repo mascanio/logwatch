@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"io"
 	"log"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
@@ -127,8 +127,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		item := item.Item(msg)
 		m.count++
 		newRows := m.table.Rows()
-		count := strconv.Itoa(m.count)
-		newRows = append(newRows, table.Row{count, item.Msg})
+		newRows = append(newRows, table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg})
 		m.table.SetRows(newRows)
 		if !m.freezed {
 			m.table.MoveDown(1)
@@ -144,7 +143,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetWidth(msg.Width - 4)
 		m.table.SetHeight(msg.Height - 2 - m.helpHeight() - 2)
 		newCols := m.table.Columns()
-		newCols[1].Width = m.table.Width() - newCols[0].Width - 2
+		newCols[2].Width = m.table.Width() - newCols[0].Width - newCols[1].Width - 2
 		m.table.SetColumns(newCols)
 	}
 	var cmd tea.Cmd

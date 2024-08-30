@@ -27,7 +27,8 @@ func main() {
 	sc := bufio.NewScanner(inputStream)
 
 	columns := []table.Column{
-		{Title: "id", Width: 4},
+		{Title: "time", Width: 8},
+		{Title: "level", Width: 6},
 		{Title: "msg", Width: 70},
 	}
 
