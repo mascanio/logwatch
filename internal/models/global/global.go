@@ -3,6 +3,7 @@ package global
 import (
 	"bufio"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mascanio/logwatch/internal/item"
+	"github.com/mascanio/logwatch/internal/parser"
 )
 
 type Model struct {
@@ -41,10 +44,11 @@ type watchReader struct {
 	readChan chan string
 }
 
-type watchLineReaded string
+type watchLineReaded item.Item
 type watchEof struct{}
 type watchErr error
 type watchChanClosed struct{}
+type parserError error
 
 func (r *watchReader) watchForLine() tea.Cmd {
 	return func() tea.Msg {
@@ -65,7 +69,11 @@ func (r *watchReader) waitForLine() tea.Cmd {
 		if !ok {
 			return watchChanClosed{}
 		}
-		return watchLineReaded(s)
+		item, err := parser.Parse(s)
+		if err != nil {
+			return parserError(err)
+		}
+		return watchLineReaded(item)
 	}
 }
 
@@ -113,22 +121,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			}
 		}
+	case parserError:
+		panic(error(msg))
 	case watchLineReaded:
+		item := item.Item(msg)
 		m.count++
 		newRows := m.table.Rows()
 		count := strconv.Itoa(m.count)
-		newRows = append(newRows, table.Row{count, string(msg)})
+		newRows = append(newRows, table.Row{count, item.Msg})
 		m.table.SetRows(newRows)
 		if !m.freezed {
 			m.table.MoveDown(1)
 		}
 		return m, m.wr.waitForLine()
 	case watchChanClosed:
-		// log("Chan closed")
-		break
+		log.Println("Chan closed")
 	case watchEof:
-		// log("EOF")
-		break
+		log.Println("EOF")
 	case watchErr:
 		panic(msg)
 	case tea.WindowSizeMsg:
