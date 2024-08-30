@@ -5,23 +5,16 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mascanio/logwatch/internal/input"
-	"github.com/mascanio/logwatch/internal/models"
+	"github.com/mascanio/logwatch/internal/models/global"
 )
 
-var logFile *os.File
-
-func log(s string) {
-	if _, err := logFile.WriteString(s); err != nil {
-		panic(err)
-	}
-}
-
 func main() {
-	var err error
-	logFile, err = tea.LogToFile("log", "debug")
+	// Setup logger
+	logFile, err := tea.LogToFile("log", "debug")
 	if err != nil {
 		panic(err)
 	}
@@ -31,12 +24,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	reader := bufio.NewReader(inputStream)
-	sc := bufio.NewScanner(reader)
-	sc.Split(bufio.ScanLines)
+	sc := bufio.NewScanner(inputStream)
+
+	columns := []table.Column{
+		{Title: "id", Width: 4},
+		{Title: "msg", Width: 70},
+	}
+
+	model := global.New(sc,
+		global.WithTableColums(columns),
+		global.WithScanner(sc),
+	)
 
 	p := tea.NewProgram(
-		models.NewGlobal(sc),
+		model,
 		tea.WithAltScreen(),       // use the full size of the terminal in its "alternate screen buffer"
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 		tea.WithInputTTY(),

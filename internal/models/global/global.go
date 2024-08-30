@@ -1,4 +1,4 @@
-package models
+package global
 
 import (
 	"bufio"
@@ -19,35 +19,21 @@ type Model struct {
 	freezed bool
 }
 
-func NewGlobal(sc *bufio.Scanner) Model {
-	columns := []table.Column{
-		{Title: "id", Width: 4},
-		{Title: "msg", Width: 70},
+func New(sc *bufio.Scanner, opts ...ModelOption) Model {
+	rv := Model{
+		table: table.New(
+			table.WithFocused(true),
+			table.WithRows(make([]table.Row, 0)),
+		),
+		wr: &watchReader{readChan: make(chan string)},
+	}
+	rv.setDefaultTableStyle()
+
+	for _, opt := range opts {
+		opt(&rv)
 	}
 
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithFocused(true),
-		table.WithRows(make([]table.Row, 0)),
-		table.WithStyles(s),
-	)
-
-	wr := &watchReader{readChan: make(chan string), sc: sc}
-	return Model{
-		table: t,
-		wr:    wr,
-	}
+	return rv
 }
 
 type watchReader struct {
