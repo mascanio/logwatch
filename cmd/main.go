@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mascanio/logwatch/internal/input"
+	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/models/global"
 )
 
@@ -44,8 +46,20 @@ func main() {
 		tea.WithInputTTY(),
 	)
 
-	if _, err := p.Run(); err != nil {
-		fmt.Println("could not run program:", err)
-		os.Exit(1)
+	if len(os.Args) == 1 {
+		if _, err := p.Run(); err != nil {
+			fmt.Println("could not run program:", err)
+			os.Exit(1)
+		}
+		return
 	}
+
+	http.HandleFunc("/pprof", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := p.Run(); err != nil {
+			fmt.Println("could not run program:", err)
+			os.Exit(1)
+		}
+	})
+	http.ListenAndServe(":3000", nil)
+
 }

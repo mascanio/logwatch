@@ -3,8 +3,8 @@ package global
 import (
 	"bufio"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
+	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 )
 
 type ModelOption func(*Model)

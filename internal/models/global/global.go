@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/mascanio/logwatch/internal/item"
+	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/parser"
 )
 
@@ -125,10 +126,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panic(error(msg))
 	case watchLineReaded:
 		item := item.Item(msg)
+		r := table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg}
+		m.table.AppendRow(r)
 		m.count++
-		newRows := m.table.Rows()
-		newRows = append(newRows, table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg})
-		m.table.SetRows(newRows)
 		if !m.freezed {
 			m.table.MoveDown(1)
 		}
