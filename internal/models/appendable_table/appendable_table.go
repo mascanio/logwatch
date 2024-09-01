@@ -16,11 +16,12 @@ type Model struct {
 	KeyMap KeyMap
 	Help   help.Model
 
-	cols   []Column
-	rows   []Row
-	cursor int
-	focus  bool
-	styles Styles
+	cols    []Column
+	rows    []Row
+	cursor  int
+	focus   bool
+	freezed bool
+	styles  Styles
 
 	viewport viewport.Model
 	start    int
@@ -47,17 +48,18 @@ type KeyMap struct {
 	HalfPageDown key.Binding
 	GotoTop      key.Binding
 	GotoBottom   key.Binding
+	Continue     key.Binding
 }
 
 // ShortHelp implements the KeyMap interface.
 func (km KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{km.LineUp, km.LineDown}
+	return []key.Binding{km.LineUp, km.LineDown, km.Continue}
 }
 
 // FullHelp implements the KeyMap interface.
 func (km KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{km.LineUp, km.LineDown, km.GotoTop, km.GotoBottom},
+		{km.LineUp, km.LineDown, km.GotoTop, km.GotoBottom, km.Continue},
 		{km.PageUp, km.PageDown, km.HalfPageUp, km.HalfPageDown},
 	}
 }
@@ -97,6 +99,10 @@ func DefaultKeyMap() KeyMap {
 		GotoBottom: key.NewBinding(
 			key.WithKeys("end", "G"),
 			key.WithHelp("G/end", "go to end"),
+		),
+		Continue: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "continue scrolling"),
 		),
 	}
 }
@@ -206,6 +212,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if key.Matches(msg, m.KeyMap.Continue) {
+			m.freezed = false
+			m.GotoBottom()
+			break
+		}
+		m.freezed = true
 		switch {
 		case key.Matches(msg, m.KeyMap.LineUp):
 			m.MoveUp(1)
@@ -264,8 +276,6 @@ func (m Model) HelpView() string {
 // UpdateViewport updates the list content based on the previously defined
 // columns and rows.
 func (m *Model) UpdateViewport() {
-	renderedRows := make([]string, 0, len(m.rows))
-
 	// Render only rows from: m.cursor-m.viewport.Height to: m.cursor+m.viewport.Height
 	// Constant runtime, independent of number of rows in a table.
 	// Limits the number of renderedRows to a maximum of 2*m.viewport.Height
@@ -275,6 +285,7 @@ func (m *Model) UpdateViewport() {
 		m.start = 0
 	}
 	m.end = clamp(m.cursor+m.viewport.Height, m.cursor, len(m.rows))
+	renderedRows := make([]string, 0, m.end-m.start)
 	for i := m.start; i < m.end; i++ {
 		renderedRows = append(renderedRows, m.renderRow(i))
 	}
@@ -312,7 +323,9 @@ func (m *Model) SetRows(r []Row) {
 
 func (m *Model) AppendRow(r Row) {
 	m.rows = append(m.rows, r)
-	m.UpdateViewport()
+	if !m.freezed {
+		m.MoveDown(1)
+	}
 }
 
 // SetColumns sets a new columns state.

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -17,10 +16,9 @@ import (
 )
 
 type Model struct {
-	table   table.Model
-	wr      *watchReader
-	count   int
-	freezed bool
+	table table.Model
+	wr    *watchReader
+	count int
 }
 
 func New(sc *bufio.Scanner, opts ...ModelOption) Model {
@@ -90,37 +88,23 @@ func (m Model) helpHeight() int {
 	return strings.Count(s, "\n")
 }
 
-func (m Model) isMoveMsg(msg tea.KeyMsg) bool {
-	km := m.table.KeyMap
-	return key.Matches(msg, km.LineUp, km.LineDown, km.PageUp, km.PageDown,
-		km.HalfPageUp, km.HalfPageDown, km.GotoTop, km.GotoBottom)
-}
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.isMoveMsg(msg) {
-			m.freezed = true
-		} else {
-			switch msg.String() {
-			case "c":
-				m.table.GotoBottom()
-				m.freezed = false
-			case "q", "ctrl+c":
-				return m, tea.Quit
-			case "?":
-				preH := m.helpHeight()
-				m.table.Help.ShowAll = !m.table.Help.ShowAll
-				postH := m.helpHeight()
-				// Magic that I don't understand that works
-				if preH < postH {
-					m.table.SetHeight(m.table.Height() - preH + postH - 4)
-				} else {
-					m.table.SetHeight(m.table.Height() + preH - postH + 2)
-				}
-				return m, nil
-
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "?":
+			preH := m.helpHeight()
+			m.table.Help.ShowAll = !m.table.Help.ShowAll
+			postH := m.helpHeight()
+			// Magic that I don't understand that works
+			if preH < postH {
+				m.table.SetHeight(m.table.Height() - preH + postH - 4)
+			} else {
+				m.table.SetHeight(m.table.Height() + preH - postH + 2)
 			}
+			return m, nil
 		}
 	case parserError:
 		panic(msg)
@@ -129,9 +113,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		r := table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg}
 		m.table.AppendRow(r)
 		m.count++
-		if !m.freezed {
-			m.table.MoveDown(1)
-		}
 		return m, m.wr.waitForLine()
 	case watchChanClosed:
 		log.Println("Chan closed")
