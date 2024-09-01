@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -83,11 +82,6 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-func (m Model) helpHeight() int {
-	s := m.table.HelpView()
-	return strings.Count(s, "\n")
-}
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -95,9 +89,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "?":
-			preH := m.helpHeight()
+			preH := lipgloss.Height(m.table.HelpView())
 			m.table.Help.ShowAll = !m.table.Help.ShowAll
-			postH := m.helpHeight()
+			postH := lipgloss.Height(m.table.HelpView())
 			// Magic that I don't understand that works
 			if preH < postH {
 				m.table.SetHeight(m.table.Height() - preH + postH - 4)
@@ -106,14 +100,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-	case parserError:
-		panic(msg)
 	case watchLineReaded:
 		item := item.Item(msg)
-		r := table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg}
+		r := table.Row{
+			item.Time.Format(time.TimeOnly),
+			item.Level.String(),
+			item.Msg,
+		}
 		m.table.AppendRow(r)
 		m.count++
 		return m, m.wr.waitForLine()
+	case parserError:
+		panic(msg)
 	case watchChanClosed:
 		log.Println("Chan closed")
 	case watchEof:
@@ -121,11 +119,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case watchErr:
 		panic(msg)
 	case tea.WindowSizeMsg:
-		m.table.SetWidth(msg.Width - 4)
-		m.table.SetHeight(msg.Height - 2 - m.helpHeight() - 2)
-		newCols := m.table.Columns()
-		newCols[2].Width = m.table.Width() - newCols[0].Width - newCols[1].Width - 2
-		m.table.SetColumns(newCols)
+		m.table.Resize(msg.Width-4,
+			msg.Height-2-lipgloss.Height(m.table.HelpView())-2, 2)
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)

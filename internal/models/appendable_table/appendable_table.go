@@ -59,8 +59,9 @@ func (km KeyMap) ShortHelp() []key.Binding {
 // FullHelp implements the KeyMap interface.
 func (km KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{km.LineUp, km.LineDown, km.GotoTop, km.GotoBottom, km.Continue},
+		{km.LineUp, km.LineDown, km.GotoTop, km.GotoBottom},
 		{km.PageUp, km.PageDown, km.HalfPageUp, km.HalfPageDown},
+		{km.Continue},
 	}
 }
 
@@ -343,6 +344,14 @@ func (m *Model) SetWidth(w int) {
 // SetHeight sets the height of the viewport of the table.
 func (m *Model) SetHeight(h int) {
 	m.viewport.Height = h - lipgloss.Height(m.headersView())
+	m.UpdateViewport()
+}
+
+func (m *Model) Resize(w, h int, flexClol int) {
+	m.viewport.Width = w
+	m.viewport.Height = h - lipgloss.Height(m.headersView())
+	// TODO: iterate rest of cols. Margin
+	m.cols[flexClol].Width = m.Width() - m.cols[0].Width - m.cols[1].Width - 2
 	m.UpdateViewport()
 }
 
