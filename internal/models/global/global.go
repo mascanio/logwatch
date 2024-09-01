@@ -47,9 +47,9 @@ type watchReader struct {
 
 type watchLineReaded item.Item
 type watchEof struct{}
-type watchErr error
+type watchErr struct{ error }
 type watchChanClosed struct{}
-type parserError error
+type parserError struct{ error }
 
 func (r *watchReader) watchForLine() tea.Cmd {
 	return func() tea.Msg {
@@ -58,7 +58,7 @@ func (r *watchReader) watchForLine() tea.Cmd {
 			r.readChan <- r.sc.Text()
 		}
 		if err := r.sc.Err(); err != nil && err != io.EOF {
-			return watchErr(err)
+			return watchErr{err}
 		}
 		return watchEof{}
 	}
@@ -72,7 +72,7 @@ func (r *watchReader) waitForLine() tea.Cmd {
 		}
 		item, err := parser.Parse(s)
 		if err != nil {
-			return parserError(err)
+			return parserError{err}
 		}
 		return watchLineReaded(item)
 	}
@@ -123,7 +123,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case parserError:
-		panic(error(msg))
+		panic(msg)
 	case watchLineReaded:
 		item := item.Item(msg)
 		r := table.Row{item.Time.Format(time.TimeOnly), item.Level.String(), item.Msg}
