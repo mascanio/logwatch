@@ -16,12 +16,16 @@ type Model struct {
 	KeyMap KeyMap
 	Help   help.Model
 
-	cols    []Column
-	rows    []Row
-	cursor  int
-	focus   bool
-	freezed bool
-	styles  Styles
+	cols   []Column
+	rows   []Row
+	cursor int
+
+	focus              bool
+	freezed            bool
+	cachedHeaderView   string
+	cachedViewportView string
+
+	styles Styles
 
 	viewport viewport.Model
 	start    int
@@ -264,7 +268,7 @@ func (m *Model) Blur() {
 
 // View renders the component.
 func (m Model) View() string {
-	return m.headersView() + "\n" + m.viewport.View()
+	return m.cachedHeaderView + "\n" + m.cachedViewportView
 }
 
 // HelpView is a helper method for rendering the help menu from the keymap.
@@ -294,6 +298,7 @@ func (m *Model) UpdateViewport() {
 	m.viewport.SetContent(
 		lipgloss.JoinVertical(lipgloss.Left, renderedRows...),
 	)
+	m.cachedViewportView = m.viewport.View()
 }
 
 // SelectedRow returns the selected row.
@@ -353,6 +358,7 @@ func (m *Model) Resize(w, h int, flexClol int) {
 	// TODO: iterate rest of cols. Margin
 	m.cols[flexClol].Width = m.Width() - m.cols[0].Width - m.cols[1].Width - 2
 	m.UpdateViewport()
+	m.cachedHeaderView = m.headersView()
 }
 
 // Height returns the viewport height of the table.
