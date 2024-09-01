@@ -2,6 +2,7 @@ package global
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -12,23 +13,55 @@ import (
 	"github.com/mascanio/logwatch/internal/item"
 	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/parser"
+	"github.com/mistakenelf/teacup/statusbar"
 )
 
 type Model struct {
-	table table.Model
-	wr    *watchReader
-	count int
+	table     table.Model
+	statusbar statusbar.Model
+	wr        *watchReader
+	last      time.Time
 }
 
 func New(sc *bufio.Scanner, opts ...ModelOption) Model {
+	sb := statusbar.New(
+		statusbar.ColorConfig{
+			Foreground: lipgloss.AdaptiveColor{Dark: "#ffffff", Light: "#ffffff"},
+			Background: lipgloss.AdaptiveColor{Light: "#F25D94", Dark: "#F25D94"},
+		},
+		statusbar.ColorConfig{
+			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+			Background: lipgloss.AdaptiveColor{Light: "#3c3836", Dark: "#3c3836"},
+		},
+		statusbar.ColorConfig{
+			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+			Background: lipgloss.AdaptiveColor{Light: "#A550DF", Dark: "#A550DF"},
+		},
+		statusbar.ColorConfig{
+			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+			Background: lipgloss.AdaptiveColor{Light: "#6124DF", Dark: "#6124DF"},
+		},
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
 	rv := Model{
 		table: table.New(
 			table.WithFocused(true),
 			table.WithRows(make([]table.Row, 0)),
+			table.WithStyles(s),
 		),
-		wr: &watchReader{readChan: make(chan string)},
+		statusbar: sb,
+		wr:        &watchReader{readChan: make(chan string)},
 	}
-	rv.setDefaultTableStyle()
 
 	for _, opt := range opts {
 		opt(&rv)
@@ -88,19 +121,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "?":
-			preH := lipgloss.Height(m.table.HelpView())
-			m.table.Help.ShowAll = !m.table.Help.ShowAll
-			postH := lipgloss.Height(m.table.HelpView())
-			// Magic that I don't understand that works
-			if preH < postH {
-				m.table.SetHeight(m.table.Height() - preH + postH - 4)
-			} else {
-				m.table.SetHeight(m.table.Height() + preH - postH + 2)
-			}
-			return m, nil
+			// case "?":
+			// 	preH := lipgloss.Height(m.table.HelpView())
+			// 	m.table.Help.ShowAll = !m.table.Help.ShowAll
+			// 	postH := lipgloss.Height(m.table.HelpView())
+			// 	// Magic that I don't understand that works
+			// 	if preH < postH {
+			// 		m.table.SetHeight(m.table.Height() - preH + postH - 4 - 1)
+			// 	} else {
+			// 		m.table.SetHeight(m.table.Height() + preH - postH + 2 - 1)
+			// 	}
+			// 	return m, nil
 		}
 	case watchLineReaded:
+		freq := time.Since(m.last)
+		m.last = time.Now()
 		item := item.Item(msg)
 		r := table.Row{
 			item.Time.Format(time.TimeOnly),
@@ -108,7 +143,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			item.Msg,
 		}
 		m.table.AppendRow(r)
-		m.count++
+		m.statusbar.SetContent("test.txt", "~/.config/nvim",
+			fmt.Sprintf("%v/%v", m.table.Cursor(), len(m.table.Rows())), freq.String())
 		return m, m.wr.waitForLine()
 	case parserError:
 		panic(msg)
@@ -120,7 +156,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panic(msg)
 	case tea.WindowSizeMsg:
 		m.table.Resize(msg.Width-4,
-			msg.Height-2-lipgloss.Height(m.table.HelpView())-2, 2)
+			msg.Height-2-lipgloss.Height(m.table.HelpView())-2-1, 2)
+		m.statusbar.SetSize(msg.Width)
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
@@ -132,5 +169,9 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 func (m Model) View() string {
-	return baseStyle.Render(m.table.View()) + "\n" + m.table.HelpView() + "\n"
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		baseStyle.Render(m.table.View()),
+		m.statusbar.View(),
+	)
 }
