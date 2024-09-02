@@ -30,12 +30,7 @@ func New(sc *bufio.Scanner, opts ...ModelOption) Model {
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
 		Bold(false)
 	rv := Model{
 		table: table.New(
