@@ -21,6 +21,7 @@ type Model struct {
 	statusbar statusbar.Model
 	wr        *watchReader
 	last      time.Time
+	h         int
 }
 
 func New(sc *bufio.Scanner, opts ...ModelOption) Model {
@@ -138,8 +139,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case watchErr:
 		panic(msg)
 	case tea.WindowSizeMsg:
-		m.table.Resize(msg.Width-4,
-			msg.Height-2-lipgloss.Height(m.table.HelpView())-2-1, 2)
+		m.h = msg.Height
+		m.table.Resize(msg.Width, msg.Height-lipgloss.Height(m.statusbar.View()), 2)
 		m.statusbar.SetSize(msg.Width)
 	}
 	var cmd tea.Cmd

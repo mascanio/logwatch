@@ -353,8 +353,10 @@ func (m *Model) SetHeight(h int) {
 }
 
 func (m *Model) Resize(w, h int, flexClol int) {
-	m.viewport.Width = w
-	m.viewport.Height = h - lipgloss.Height(m.headersView())
+	s := m.styles.Header
+	m.viewport.Width = w - s.GetHorizontalPadding() - s.GetHorizontalFrameSize() - 2
+	m.viewport.Height = h - lipgloss.Height(m.headersView()) - s.GetVerticalBorderSize() - s.GetVerticalFrameSize()
+
 	// TODO: iterate rest of cols. Margin
 	m.cols[flexClol].Width = m.Width() - m.cols[0].Width - m.cols[1].Width - 2
 	m.UpdateViewport()
