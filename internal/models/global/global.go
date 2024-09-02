@@ -12,8 +12,8 @@ import (
 
 	"github.com/mascanio/logwatch/internal/item"
 	table "github.com/mascanio/logwatch/internal/models/appendable_table"
+	"github.com/mascanio/logwatch/internal/models/statusbar"
 	"github.com/mascanio/logwatch/internal/parser"
-	"github.com/mistakenelf/teacup/statusbar"
 )
 
 type Model struct {
@@ -24,24 +24,7 @@ type Model struct {
 }
 
 func New(sc *bufio.Scanner, opts ...ModelOption) Model {
-	sb := statusbar.New(
-		statusbar.ColorConfig{
-			Foreground: lipgloss.AdaptiveColor{Dark: "#ffffff", Light: "#ffffff"},
-			Background: lipgloss.AdaptiveColor{Light: "#F25D94", Dark: "#F25D94"},
-		},
-		statusbar.ColorConfig{
-			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-			Background: lipgloss.AdaptiveColor{Light: "#3c3836", Dark: "#3c3836"},
-		},
-		statusbar.ColorConfig{
-			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-			Background: lipgloss.AdaptiveColor{Light: "#A550DF", Dark: "#A550DF"},
-		},
-		statusbar.ColorConfig{
-			Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-			Background: lipgloss.AdaptiveColor{Light: "#6124DF", Dark: "#6124DF"},
-		},
-	)
+	sb := statusbar.New()
 
 	s := table.DefaultStyles()
 	s.Header = s.Header.
