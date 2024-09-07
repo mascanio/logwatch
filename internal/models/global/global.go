@@ -39,7 +39,9 @@ func New(sc *bufio.Scanner, opts ...ModelOption) Model {
 			table.WithStyles(s),
 		),
 		statusbar: sb,
-		wr:        &watchReader{readChan: make(chan string)},
+		wr: &watchReader{
+			readChan: make(chan string),
+		},
 	}
 
 	for _, opt := range opts {
@@ -52,6 +54,7 @@ func New(sc *bufio.Scanner, opts ...ModelOption) Model {
 type watchReader struct {
 	sc       *bufio.Scanner
 	readChan chan string
+	parser   parser.Parser
 }
 
 type watchLineReaded item.Item
@@ -79,7 +82,7 @@ func (r *watchReader) waitForLine() tea.Cmd {
 		if !ok {
 			return watchChanClosed{}
 		}
-		item, err := parser.Parse(s)
+		item, err := r.parser.Parse(s)
 		if err != nil {
 			return parserError{err}
 		}
@@ -119,7 +122,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		r := table.Row{
 			item.Time.Format(time.TimeOnly),
 			item.Level.String(),
-			item.Msg,
+			item.VariableFields["Msg"],
+			item.VariableFields["Host"],
 		}
 		m.table.AppendRow(r)
 		m.statusbar.SetContent("test.txt", "~/.config/nvim",

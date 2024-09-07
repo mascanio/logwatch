@@ -9,6 +9,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mattn/go-tty v0.0.7
 	github.com/muesli/reflow v0.3.0
+	github.com/pelletier/go-toml/v2 v2.2.3
 )
 
 require (

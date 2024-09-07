@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	table "github.com/mascanio/logwatch/internal/models/appendable_table"
+	"github.com/mascanio/logwatch/internal/parser"
 )
 
 type ModelOption func(*Model)
@@ -24,6 +25,12 @@ func WithTableStyle(s table.Styles) ModelOption {
 func WithScanner(sc *bufio.Scanner) ModelOption {
 	return func(m *Model) {
 		m.wr.sc = sc
+	}
+}
+
+func WithParser(parser parser.Parser) ModelOption {
+	return func(m *Model) {
+		m.wr.parser = parser
 	}
 }
 

@@ -3,15 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/mascanio/logwatch/internal/config"
 	"github.com/mascanio/logwatch/internal/input"
 	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/models/global"
+	"github.com/mascanio/logwatch/internal/parser"
 )
 
 func main() {
@@ -22,6 +25,16 @@ func main() {
 	}
 	defer logFile.Close()
 
+	config, err := config.ParseConfig("config.toml")
+	if err != nil {
+		panic(err)
+	}
+
+	parser, err := parser.New(config.Parser)
+	if err != nil {
+		panic(err)
+	}
+
 	inputStream, err := input.NewBasicPipe()
 	if err != nil {
 		panic(err)
@@ -31,12 +44,14 @@ func main() {
 	columns := []table.Column{
 		{Title: "time", Width: 8},
 		{Title: "level", Width: 6},
-		{Title: "msg", Width: 70},
+		{Title: "msg", Width: 10},
+		{Title: "host", Width: 10},
 	}
 
 	model := global.New(sc,
 		global.WithTableColums(columns),
 		global.WithScanner(sc),
+		global.WithParser(parser),
 	)
 
 	p := tea.NewProgram(
@@ -45,6 +60,8 @@ func main() {
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 		tea.WithInputTTY(),
 	)
+
+	log.Println(config)
 
 	if len(os.Args) == 1 {
 		if _, err := p.Run(); err != nil {

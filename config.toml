@@ -1,0 +1,37 @@
+# [timestamp]
+# format = 
+
+# [loglevel]
+# debug = ["DEBUG"]
+# info = ["INFO"]
+
+[[fields]]
+name = "Timestamp"
+type = "timestamp"
+
+[[fields]]
+name = "Level"
+type = "loglevel"
+
+[[fields]]
+name = "Msg"
+type = "string"
+
+[parser]
+parserType = "json"
+
+[[parser.json.fields]]
+jsonKey = "Timestamp"
+type = "timestamp"
+
+[[parser.json.fields]]
+jsonKey = "Level"
+type = "loglevel"
+
+[[parser.json.fields]]
+jsonKey = "Msg"
+type = "string"
+
+[[parser.json.fields]]
+jsonKey = "Host"
+type = "string"

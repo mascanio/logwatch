@@ -1,23 +1,21 @@
 package parser
 
 import (
-	"encoding/json"
+	"fmt"
 
+	"github.com/mascanio/logwatch/internal/config"
 	"github.com/mascanio/logwatch/internal/item"
 )
 
-type Parser struct {
+type Parser interface {
+	Parse(s string) (item.Item, error)
 }
 
-func New() Parser {
-	return Parser{}
-}
-
-func Parse(s string) (item.Item, error) {
-	var rv item.Item
-	err := json.Unmarshal([]byte(s), &rv)
-	if err != nil {
-		return item.Item{}, err
+func New(conf config.ParserConfig) (Parser, error) {
+	switch conf.ParserType {
+	case "json":
+		return newJsonParser(conf.Json), nil
+	default:
+		return jsonParser{}, fmt.Errorf("invalid parser %v", conf.ParserType)
 	}
-	return rv, nil
 }

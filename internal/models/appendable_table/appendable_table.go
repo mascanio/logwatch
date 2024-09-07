@@ -352,13 +352,17 @@ func (m *Model) SetHeight(h int) {
 	m.UpdateViewport()
 }
 
-func (m *Model) Resize(w, h int, flexClol int) {
+func (m *Model) Resize(w, h int, flexCol int) {
 	s := m.styles.Header
 	m.viewport.Width = w - s.GetHorizontalPadding() - s.GetHorizontalFrameSize() - 2
 	m.viewport.Height = h - lipgloss.Height(m.headersView()) - s.GetVerticalBorderSize() - s.GetVerticalFrameSize()
 
-	// TODO: iterate rest of cols. Margin
-	m.cols[flexClol].Width = m.Width() - m.cols[0].Width - m.cols[1].Width - 2
+	m.cols[flexCol].Width = m.Width() - 2
+	for i := range m.cols {
+		if i != flexCol {
+			m.cols[flexCol].Width -= m.cols[i].Width
+		}
+	}
 	m.UpdateViewport()
 	m.cachedHeaderView = m.headersView()
 }
