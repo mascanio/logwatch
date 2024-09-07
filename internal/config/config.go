@@ -14,6 +14,8 @@ type Config struct {
 
 type Field struct {
 	Name, Type string
+	Width      int
+	Flex       bool
 }
 
 type ParserConfig struct {
@@ -25,7 +27,6 @@ type ParserJson struct {
 	Fields []struct {
 		JsonKey, Type string
 	}
-	variableFields []string
 }
 
 func ParseConfig(p string) (Config, error) {

@@ -25,7 +25,8 @@ type Model struct {
 	cachedHeaderView   string
 	cachedViewportView string
 
-	styles Styles
+	styles     Styles
+	colBuilder ColBuilder
 
 	viewport viewport.Model
 	start    int
@@ -155,15 +156,15 @@ func New(opts ...Option) Model {
 		opt(&m)
 	}
 
+	m.SetColumns(m.colBuilder.GetCols())
 	m.UpdateViewport()
 
 	return m
 }
 
-// WithColumns sets the table columns (headers).
-func WithColumns(cols []Column) Option {
+func WithColBuilder(cb ColBuilder) Option {
 	return func(m *Model) {
-		m.cols = cols
+		m.colBuilder = cb
 	}
 }
 
@@ -357,12 +358,7 @@ func (m *Model) Resize(w, h int, flexCol int) {
 	m.viewport.Width = w - s.GetHorizontalPadding() - s.GetHorizontalFrameSize() - 2
 	m.viewport.Height = h - lipgloss.Height(m.headersView()) - s.GetVerticalBorderSize() - s.GetVerticalFrameSize()
 
-	m.cols[flexCol].Width = m.Width() - 2
-	for i := range m.cols {
-		if i != flexCol {
-			m.cols[flexCol].Width -= m.cols[i].Width
-		}
-	}
+	m.colBuilder.Resize(m.cols, m.Width()-2)
 	m.UpdateViewport()
 	m.cachedHeaderView = m.headersView()
 }

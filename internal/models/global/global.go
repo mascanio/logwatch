@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/mascanio/logwatch/internal/config"
 	"github.com/mascanio/logwatch/internal/item"
 	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/models/statusbar"
@@ -17,16 +18,18 @@ import (
 )
 
 type Model struct {
-	table     table.Model
-	statusbar statusbar.Model
-	wr        *watchReader
-	last      time.Time
-	h         int
+	table         table.Model
+	statusbar     statusbar.Model
+	wr            *watchReader
+	rowColBuilder rowColBuilder
+	last          time.Time
+	h             int
 }
 
-func New(sc *bufio.Scanner, opts ...ModelOption) Model {
+func New(config config.Config, opts ...ModelOption) Model {
 	sb := statusbar.New()
 
+	rowColBuilder := newRowColBuilder(config)
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
@@ -34,11 +37,13 @@ func New(sc *bufio.Scanner, opts ...ModelOption) Model {
 		Bold(false)
 	rv := Model{
 		table: table.New(
+			table.WithColBuilder(&rowColBuilder),
 			table.WithFocused(true),
 			table.WithRows(make([]table.Row, 0)),
 			table.WithStyles(s),
 		),
-		statusbar: sb,
+		rowColBuilder: rowColBuilder,
+		statusbar:     sb,
 		wr: &watchReader{
 			readChan: make(chan string),
 		},
@@ -119,14 +124,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		freq := time.Since(m.last)
 		m.last = time.Now()
 		item := item.Item(msg)
-		r := table.Row{
-			item.Time.Format(time.TimeOnly),
-			item.Level.String(),
-			item.VariableFields["Msg"],
-			item.VariableFields["Host"],
-		}
-		m.table.AppendRow(r)
-		m.statusbar.SetContent("test.txt", "~/.config/nvim",
+		m.table.AppendRow(m.rowColBuilder.Row(item))
+		m.statusbar.SetContent("pipe", "",
 			fmt.Sprintf("%v/%v", m.table.Cursor(), len(m.table.Rows())), freq.String())
 		return m, m.wr.waitForLine()
 	case parserError:

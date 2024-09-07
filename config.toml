@@ -8,14 +8,23 @@
 [[fields]]
 name = "Timestamp"
 type = "timestamp"
+width = 8
 
 [[fields]]
 name = "Level"
 type = "loglevel"
+width = 6
 
 [[fields]]
 name = "Msg"
 type = "string"
+width = 10
+flex = true
+
+[[fields]]
+name = "Host"
+type = "string"
+width = 10
 
 [parser]
 parserType = "json"

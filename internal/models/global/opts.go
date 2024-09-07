@@ -10,12 +10,6 @@ import (
 
 type ModelOption func(*Model)
 
-func WithTableColums(cols []table.Column) ModelOption {
-	return func(m *Model) {
-		m.table.SetColumns(cols)
-	}
-}
-
 func WithTableStyle(s table.Styles) ModelOption {
 	return func(m *Model) {
 		m.table.SetStyles(s)

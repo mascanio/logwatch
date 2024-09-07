@@ -12,7 +12,6 @@ import (
 
 	"github.com/mascanio/logwatch/internal/config"
 	"github.com/mascanio/logwatch/internal/input"
-	table "github.com/mascanio/logwatch/internal/models/appendable_table"
 	"github.com/mascanio/logwatch/internal/models/global"
 	"github.com/mascanio/logwatch/internal/parser"
 )
@@ -41,15 +40,7 @@ func main() {
 	}
 	sc := bufio.NewScanner(inputStream)
 
-	columns := []table.Column{
-		{Title: "time", Width: 8},
-		{Title: "level", Width: 6},
-		{Title: "msg", Width: 10},
-		{Title: "host", Width: 10},
-	}
-
-	model := global.New(sc,
-		global.WithTableColums(columns),
+	model := global.New(config,
 		global.WithScanner(sc),
 		global.WithParser(parser),
 	)
