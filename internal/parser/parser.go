@@ -15,6 +15,8 @@ func New(conf config.ParserConfig) (Parser, error) {
 	switch conf.ParserType {
 	case "json":
 		return newJsonParser(conf.Json), nil
+	case "regex":
+		return newRegexParser(conf.Regex)
 	default:
 		return jsonParser{}, fmt.Errorf("invalid parser %v", conf.ParserType)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -24,7 +25,16 @@ func main() {
 	}
 	defer logFile.Close()
 
-	config, err := config.ParseConfig("config.toml")
+	f, err := os.Open("config.toml")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	doc, err := io.ReadAll(f)
+	if err != nil {
+		panic(err)
+	}
+	config, err := config.ParseConfig(doc)
 	if err != nil {
 		panic(err)
 	}

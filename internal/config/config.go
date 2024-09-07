@@ -1,11 +1,6 @@
 package config
 
-import (
-	"io"
-	"os"
-
-	"github.com/pelletier/go-toml/v2"
-)
+import "github.com/pelletier/go-toml/v2"
 
 type Config struct {
 	Fields []Field
@@ -21,6 +16,14 @@ type Field struct {
 type ParserConfig struct {
 	ParserType string
 	Json       ParserJson
+	Regex      ParserRegex
+}
+
+type ParserRegex struct {
+	Regex  string
+	Fields []struct {
+		Name, Type string
+	}
 }
 
 type ParserJson struct {
@@ -29,18 +32,9 @@ type ParserJson struct {
 	}
 }
 
-func ParseConfig(p string) (Config, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return Config{}, err
-	}
-	defer f.Close()
+func ParseConfig(doc []byte) (Config, error) {
 	var rv Config
-	doc, err := io.ReadAll(f)
-	if err != nil {
-		return Config{}, err
-	}
-	err = toml.Unmarshal(doc, &rv)
+	err := toml.Unmarshal(doc, &rv)
 	if err != nil {
 		return Config{}, err
 	}

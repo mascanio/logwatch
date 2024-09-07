@@ -36,5 +36,4 @@ type Item struct {
 	Time           time.Time
 	Level          ItemLogLevel
 	VariableFields map[string]string
-	Msg            string
 }

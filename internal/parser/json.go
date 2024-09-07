@@ -24,13 +24,13 @@ type jsonParser struct {
 	variableFields []string
 }
 
-type Item struct {
+type jsonItem struct {
 	item.Item
 	parser *jsonParser
 }
 
 func (jp jsonParser) Parse(s string) (item.Item, error) {
-	elem := Item{parser: &jp}
+	elem := jsonItem{parser: &jp}
 	err := json.Unmarshal([]byte(s), &elem)
 	if err != nil {
 		return item.Item{}, err
@@ -42,7 +42,7 @@ func (jp jsonParser) Parse(s string) (item.Item, error) {
 	}, nil
 }
 
-func (i *Item) UnmarshalJSON(data []byte) error {
+func (i *jsonItem) UnmarshalJSON(data []byte) error {
 	var m map[string]interface{}
 	i.VariableFields = make(map[string]string, 2)
 

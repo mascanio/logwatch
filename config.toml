@@ -26,21 +26,39 @@ name = "Host"
 type = "string"
 width = 10
 
-[parser]
-parserType = "json"
+# [parser]
+# parserType = "json"
+#
+# [[parser.json.fields]]
+# jsonKey = "Timestamp"
+# type = "timestamp"
+#
+# [[parser.json.fields]]
+# jsonKey = "Level"
+# type = "loglevel"
+#
+# [[parser.json.fields]]
+# jsonKey = "Msg"
+# type = "string"
+#
+# [[parser.json.fields]]
+# jsonKey = "Host"
+# type = "string"
 
-[[parser.json.fields]]
-jsonKey = "Timestamp"
+[parser]
+parserType = "regex"
+
+[parser.regex]
+regex = '\[(?P<Timestamp>.*)\] \[(?P<Level>\w+)\] (?P<Msg>.*)'
+
+[[parser.regex.fields]]
+name = "Timestamp"
 type = "timestamp"
 
-[[parser.json.fields]]
-jsonKey = "Level"
+[[parser.regex.fields]]
+name = "Level"
 type = "loglevel"
 
-[[parser.json.fields]]
-jsonKey = "Msg"
-type = "string"
-
-[[parser.json.fields]]
-jsonKey = "Host"
+[[parser.regex.fields]]
+name = "Msg"
 type = "string"
